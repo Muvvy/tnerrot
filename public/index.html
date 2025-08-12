@@ -11,7 +11,7 @@
   <div id="results"></div>
   <script>
     async function search() {
-      const query = document.getElementById("searchInput").value;
+      const query = document.getElementById("searchInput").value.trim();
       if (!query) return alert("Введите название!");
       const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
@@ -19,7 +19,7 @@
       data.forEach(item => {
         html += `<div>
           <b>${item.title}</b> (${item.size}) — Сиды: ${item.seeders}, Личи: ${item.leechers}
-          <a href="/movie/${item.infoHash}">Подробнее и смотреть</a>
+          <a href="/movie/${item.infoHash}?q=${encodeURIComponent(query)}">Подробнее и смотреть</a>
         </div>`;
       });
       document.getElementById('results').innerHTML = html;

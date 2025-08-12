@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Поиск фильмов</title>
+</head>
+<body>
+  <h1>Поиск фильмов</h1>
+  <input type="text" id="searchInput" placeholder="Введите название" />
+  <button onclick="search()">Поиск</button>
+  <div id="results"></div>
+  <script>
+    async function search() {
+      const query = document.getElementById("searchInput").value;
+      if (!query) return alert("Введите название!");
+      const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      let html = '';
+      data.forEach(item => {
+        html += `<div>
+          <b>${item.title}</b> (${item.size}) — Сиды: ${item.seeders}, Личи: ${item.leechers}
+          <a href="/movie/${item.infoHash}">Подробнее и смотреть</a>
+        </div>`;
+      });
+      document.getElementById('results').innerHTML = html;
+    }
+  </script>
+</body>
+</html>

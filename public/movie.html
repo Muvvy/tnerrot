@@ -5,25 +5,37 @@
   <title>Раздача</title>
 </head>
 <body>
-  <h1>Раздача фильма</h1>
+  <h1>Информация о раздаче</h1>
   <div id="torrent"></div>
   <button onclick="watch()">▶ Смотреть</button>
   <div id="player"></div>
   <script>
-    // Получаем infoHash из URL
     const infoHash = location.pathname.split('/').pop();
-    fetch(`/torrent/${infoHash}`).then(r => r.json()).then(torrent => {
-      document.getElementById('torrent').innerHTML = `
-        <b>${torrent.title}</b><br>
-        Размер: ${torrent.size}<br>
-        Сиды: ${torrent.seeders}, Личи: ${torrent.leechers}<br>
-        <a href="${torrent.magnetLink}">Magnet</a>
-      `;
-    });
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('q') || '';
+
+    fetch(`/torrent/${infoHash}?q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(torrent => {
+        const div = document.getElementById('torrent');
+        div.innerHTML = `
+          <b>${torrent.title}</b><br>
+          Размер: ${torrent.size}<br>
+          Сиды: ${torrent.seeders}, Личи: ${torrent.leechers}<br>
+          <a href="${torrent.magnetLink}">Magnet</a>
+        `;
+      })
+      .catch(() => {
+        document.getElementById('torrent').innerText = 'Ошибка загрузки информации о раздаче';
+      });
 
     function watch() {
+      if (!query) {
+        alert('Не указан запрос (название фильма). Вернитесь и выполните поиск заново.');
+        return;
+      }
       document.getElementById('player').innerHTML = `
-        <video controls autoplay width="720" src="/stream/${infoHash}"></video>
+        <video controls autoplay width="720" src="/stream/${infoHash}?q=${encodeURIComponent(query)}"></video>
       `;
     }
   </script>

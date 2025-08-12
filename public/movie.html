@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Раздача</title>
+</head>
+<body>
+  <h1>Раздача фильма</h1>
+  <div id="torrent"></div>
+  <button onclick="watch()">▶ Смотреть</button>
+  <div id="player"></div>
+  <script>
+    // Получаем infoHash из URL
+    const infoHash = location.pathname.split('/').pop();
+    fetch(`/torrent/${infoHash}`).then(r => r.json()).then(torrent => {
+      document.getElementById('torrent').innerHTML = `
+        <b>${torrent.title}</b><br>
+        Размер: ${torrent.size}<br>
+        Сиды: ${torrent.seeders}, Личи: ${torrent.leechers}<br>
+        <a href="${torrent.magnetLink}">Magnet</a>
+      `;
+    });
+
+    function watch() {
+      document.getElementById('player').innerHTML = `
+        <video controls autoplay width="720" src="/stream/${infoHash}"></video>
+      `;
+    }
+  </script>
+</body>
+</html>

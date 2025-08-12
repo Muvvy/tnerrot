@@ -9,8 +9,15 @@ const client = new WebTorrent();
 
 app.use(express.static('public'));
 
-// --- Поиск на rutor.info ---
-async function searchRutor(query, maxResults = 20) {
+// --- Кэш для результатов поиска ---
+let lastSearchCache = {};
+
+// Парсер rutor.info с кэшированием
+async function searchRutor(query, maxResults = 50) {
+  if (!query) return [];
+
+  if (lastSearchCache[query]) return lastSearchCache[query];
+
   const url = 'https://rutor.info/search/0/5/000/0/' + encodeURIComponent(query);
   const { data } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
   const $ = cheerio.load(data);
@@ -38,20 +45,24 @@ async function searchRutor(query, maxResults = 20) {
       date, title, torrentPage, downloadLink, magnetLink, size, seeders, leechers, infoHash
     });
   });
+
+  lastSearchCache[query] = results;
+  // Очистка кэша через 10 минут
+  setTimeout(() => { delete lastSearchCache[query]; }, 10 * 60 * 1000);
+
   return results;
 }
 
-// Главная страница поиска
+// Маршруты
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Страница фильма (детали раздачи)
 app.get("/movie/:infoHash", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "movie.html"));
 });
 
-// Поиск
 app.get('/search', async (req, res) => {
   const q = req.query.q;
   if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
@@ -63,15 +74,15 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// Инфо о раздаче для страницы фильма
+// Получить данные о раздаче по infoHash и query
 app.get('/torrent/:infoHash', async (req, res) => {
   const infoHash = req.params.infoHash.toLowerCase();
+  const query = req.query.q;
   if (!infoHash) return res.status(400).json({ error: "No infoHash" });
-  // Render не хранит кэш, ищем по заголовку как поиском
-  // (Лучше — кэшировать последние запросы в RAM или базе)
+  if (!query) return res.status(400).json({ error: "Missing query parameter q" });
+
   try {
-    // Ищем по названию (можно прокидывать query)
-    const results = await searchRutor('');
+    const results = await searchRutor(query);
     const torrent = results.find(t => t.infoHash === infoHash);
     if (!torrent) return res.status(404).json({ error: 'Torrent not found' });
     res.json(torrent);
@@ -80,19 +91,22 @@ app.get('/torrent/:infoHash', async (req, res) => {
   }
 });
 
-// Стриминг по infoHash
+// Стриминг с поддержкой Range-запросов
 app.get('/stream/:infoHash', async (req, res) => {
   const infoHash = req.params.infoHash.toLowerCase();
+  const query = req.query.q;
   if (!infoHash) return res.status(400).send('No infoHash');
+  if (!query) return res.status(400).send('Missing query');
+
   const range = req.headers.range;
   if (!range) return res.status(400).send('Requires Range header');
+
   try {
-    // Находим magnet-ссылку по infoHash (в реальном проекте — кэшируй)
-    const results = await searchRutor('');
+    const results = await searchRutor(query);
     const torrent = results.find(t => t.infoHash === infoHash);
     if (!torrent) return res.status(404).send('Torrent not found');
-    const magnet = torrent.magnetLink;
 
+    const magnet = torrent.magnetLink;
     let t = client.get(magnet);
     if (!t) t = client.add(magnet);
 
